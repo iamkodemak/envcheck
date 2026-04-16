@@ -1,0 +1,9 @@
+node_modules/
+build/
+.env.local
+.cache/
+.next/
+coverage/
+yarn-error.log*
+Desktop.ini
+*.log
