@@ -1,0 +1,35 @@
+{
+  "name": "envcheck",
+  "version": "0.1.0",
+  "description": "CLI tool to validate and diff .env files across environments",
+  "main": "src/index.js",
+  "bin": {
+    "envcheck": "./bin/envcheck.js"
+  },
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src/"
+  },
+  "keywords": [
+    "env",
+    "dotenv",
+    "cli",
+    "diff",
+    "validate"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^29.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/*.test.js"
+    ]
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
