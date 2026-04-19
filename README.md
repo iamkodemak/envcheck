@@ -37,6 +37,15 @@ Example output:
 | `--template` | Path to the reference `.env` file |
 | `--strict` | Fail if extra keys are found |
 | `--json` | Output results as JSON |
+| `--silent` | Suppress output, rely on exit code only |
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Validation passed |
+| `1` | Missing or mismatched keys found |
+| `2` | File not found or unreadable |
 
 ## License
 
