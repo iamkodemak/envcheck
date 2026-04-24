@@ -1,63 +1,141 @@
 #!/usr/bin/env node
 
 /**
- * CLI entry point for envcheck.
+ * Main CLI entry point for envcheck.
+ * Wires up all subcommands: diff, validate, snapshot, merge, lint, schema, transform, rename, redact, sort, convert.
  */
 
-const fs = require('fs');
-const path = require('path');
-const { parse } = require('./parser');
-const { diff } = require('./diff');
-const { validate } = require('./validator');
-const { formatDiff, formatValidation } = require('./formatter');
+const { program } = require('commander');
+const { readFileSync } = require('fs');
+const { join } = require('path');
 
-const args = process.argv.slice(2);
-const useColor = !args.includes('--no-color');
+const { runDiff, runValidate } = require('./cli');
+const { runSnapshotSave, runSnapshotList, runSnapshotDelete, runSnapshotDiffLive, runSnapshotDiffTwo } = require('./cli.snapshot');
+const { runMerge } = require('./cli.merge');
+const { runLint } = require('./cli.lint');
+const { runSchemaValidate } = require('./cli.schema');
+const { runTransform } = require('./cli.transform');
+const { runRename } = require('./cli.rename');
+const { runRedact } = require('./cli.redact');
+const { runSort } = require('./cli.sort');
+const { runConvert } = require('./cli.convert');
 
-function readEnvFile(filePath) {
-  const resolved = path.resolve(filePath);
-  if (!fs.existsSync(resolved)) {
-    console.error(`File not found: ${resolved}`);
-    process.exit(1);
-  }
-  return fs.readFileSync(resolved, 'utf-8');
-}
+const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
 
-function runDiff() {
-  const [, sourceFile, targetFile] = args;
-  if (!sourceFile || !targetFile) {
-    console.error('Usage: envcheck diff <source> <target>');
-    process.exit(1);
-  }
-  const source = parse(readEnvFile(sourceFile));
-  const target = parse(readEnvFile(targetFile));
-  const result = diff(source, target);
-  console.log(formatDiff(result, { useColor }));
-  if (result.added.length > 0 || result.removed.length > 0) process.exit(1);
-}
+program
+  .name('envcheck')
+  .description('Validate and diff .env files across environments')
+  .version(pkg.version);
 
-function runValidate() {
-  const [, envFile, schemaFile] = args;
-  if (!envFile || !schemaFile) {
-    console.error('Usage: envcheck validate <envFile> <schemaFile>');
-    process.exit(1);
-  }
-  const env = parse(readEnvFile(envFile));
-  const schema = JSON.parse(readEnvFile(schemaFile));
-  const result = validate(env, schema);
-  console.log(formatValidation(result, { useColor }));
-  if (result.errors.length > 0) process.exit(1);
-}
+// diff
+program
+  .command('diff <fileA> <fileB>')
+  .description('Show differences between two .env files')
+  .option('--no-color', 'Disable colored output')
+  .action((fileA, fileB, opts) => runDiff(fileA, fileB, opts));
 
-const command = args[0];
-switch (command) {
-  case 'diff':
-    runDiff();
-    break;
-  case 'validate':
-    runValidate();
-    break;
-  default:
-    console.error('Unknown command. Available: diff, validate');
-    process.exit(1);
+// validate
+program
+  .command('validate <file> [reference]')
+  .description('Validate a .env file, optionally against a reference')
+  .option('--no-color', 'Disable colored output')
+  .action((file, reference, opts) => runValidate(file, reference, opts));
+
+// snapshot
+const snapshot = program.command('snapshot').description('Manage .env snapshots');
+
+snapshot
+  .command('save <file> <name>')
+  .description('Save a snapshot of a .env file')
+  .action((file, name) => runSnapshotSave(file, name));
+
+snapshot
+  .command('list')
+  .description('List all saved snapshots')
+  .action(() => runSnapshotList());
+
+snapshot
+  .command('delete <name>')
+  .description('Delete a saved snapshot')
+  .action((name) => runSnapshotDelete(name));
+
+snapshot
+  .command('diff <file> <name>')
+  .description('Diff a live .env file against a snapshot')
+  .option('--no-color', 'Disable colored output')
+  .action((file, name, opts) => runSnapshotDiffLive(file, name, opts));
+
+snapshot
+  .command('diff2 <nameA> <nameB>')
+  .description('Diff two snapshots against each other')
+  .option('--no-color', 'Disable colored output')
+  .action((nameA, nameB, opts) => runSnapshotDiffTwo(nameA, nameB, opts));
+
+// merge
+program
+  .command('merge <base> <override> <output>')
+  .description('Merge two .env files, writing result to output')
+  .option('--no-color', 'Disable colored output')
+  .action((base, override, output, opts) => runMerge(base, override, output, opts));
+
+// lint
+program
+  .command('lint <file>')
+  .description('Lint a .env file for common issues')
+  .option('--no-color', 'Disable colored output')
+  .action((file, opts) => runLint(file, opts));
+
+// schema
+program
+  .command('schema <file> <schema>')
+  .description('Validate a .env file against a JSON schema')
+  .option('--no-color', 'Disable colored output')
+  .action((file, schema, opts) => runSchemaValidate(file, schema, opts));
+
+// transform
+program
+  .command('transform <file>')
+  .description('Apply key/value transformations to a .env file')
+  .option('--prefix <prefix>', 'Add a prefix to all keys')
+  .option('--suffix <suffix>', 'Add a suffix to all keys')
+  .option('--uppercase', 'Convert all keys to uppercase')
+  .option('--lowercase', 'Convert all keys to lowercase')
+  .option('--no-color', 'Disable colored output')
+  .action((file, opts) => runTransform(file, opts));
+
+// rename
+program
+  .command('rename <file> <from> <to>')
+  .description('Rename a key in a .env file')
+  .option('--in-place', 'Overwrite the source file')
+  .action((file, from, to, opts) => runRename(file, from, to, opts));
+
+// redact
+program
+  .command('redact <file>')
+  .description('Redact sensitive values in a .env file')
+  .option('--keys <keys>', 'Comma-separated list of keys to redact')
+  .option('--in-place', 'Overwrite the source file')
+  .action((file, opts) => runRedact(file, opts));
+
+// sort
+program
+  .command('sort <file>')
+  .description('Sort keys in a .env file alphabetically')
+  .option('--in-place', 'Overwrite the source file')
+  .option('--desc', 'Sort in descending order')
+  .action((file, opts) => runSort(file, opts));
+
+// convert
+program
+  .command('convert <file>')
+  .description('Convert a .env file to another format (json, yaml, export)')
+  .option('--format <format>', 'Output format: json, yaml, export', 'json')
+  .option('--output <output>', 'Write output to a file instead of stdout')
+  .action((file, opts) => runConvert(file, opts));
+
+program.parse(process.argv);
+
+if (!process.argv.slice(2).length) {
+  program.outputHelp();
 }
