@@ -26,6 +26,15 @@ describe('resolveValue', () => {
     const env = { A: '${B}', B: '${A}' };
     expect(() => resolveValue('${A}', env)).toThrow('Circular reference');
   });
+
+  test('expands multiple references in one value', () => {
+    const env = { PROTO: 'https', HOST: 'example.com', PORT: '443' };
+    expect(resolveValue('${PROTO}://${HOST}:${PORT}', env)).toBe('https://example.com:443');
+  });
+
+  test('returns empty string unchanged', () => {
+    expect(resolveValue('', {})).toBe('');
+  });
 });
 
 describe('interpolate', () => {
@@ -60,5 +69,11 @@ describe('interpolate', () => {
     const env = { PLAIN: 'value', NUM: '42' };
     const { result } = interpolate(env);
     expect(result).toEqual({ PLAIN: 'value', NUM: '42' });
+  });
+
+  test('collects errors for all circular keys, not just the first', () => {
+    const env = { A: '${B}', B: '${A}', C: '${D}', D: '${C}' };
+    const { errors } = interpolate(env);
+    expect(errors.length).toBeGreaterThanOrEqual(2);
   });
 });
