@@ -52,4 +52,12 @@ describe('sort', () => {
     expect(keys[0]).toBe('ALPHA');
     expect(keys[keys.length - 1]).toBe('ZEBRA');
   });
+
+  test('grouped keys within each group are sorted alphabetically', () => {
+    const { groups } = sort(env, { groupByPrefix: true });
+    for (const groupKey of Object.keys(groups)) {
+      const keys = Object.keys(groups[groupKey]);
+      expect(keys).toEqual([...keys].sort());
+    }
+  });
 });
